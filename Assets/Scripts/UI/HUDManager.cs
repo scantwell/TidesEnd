@@ -3,158 +3,210 @@ using TMPro;
 using UnityEngine.UI;
 using TidesEnd.Combat;
 using TidesEnd.Weapons;
+using TidesEnd.Player;
+using System;
 
-public class HUDManager : MonoBehaviour
+namespace TidesEnd.UI
 {
-    [Header("Health")]
-    [SerializeField] private Image healthBarFill;
-    [SerializeField] private TextMeshProUGUI healthText;
-    [SerializeField] private Image lowHealthVignette;
-    
-    [Header("Weapon")]
-    [SerializeField] private TextMeshProUGUI weaponNameText;
-    [SerializeField] private TextMeshProUGUI ammoText;
-    
-    [Header("Crosshair")]
-    [SerializeField] private Image crosshair;
-    [SerializeField] private Color normalColor = Color.white;
-    [SerializeField] private Color hitColor = Color.red;
-    [SerializeField] private float hitFeedbackDuration = 0.1f;
-    
-    private Health playerHealth;
-    private WeaponManager weaponManager;
-    private float crosshairResetTime;
-    
-    private void Update()
+    [RequireComponent(typeof(CanvasGroup))]
+    public class HUDManager : MonoBehaviour
     {
-        UpdateHUD();
-    }
-    
-    private void UpdateHUD()
-    {
-        // Find local player if needed
-        if (playerHealth == null || weaponManager == null)
+        [Header("UI Elements")]
+        [SerializeField] private CanvasGroup canvasGroup;
+        [Header("Health")]
+        [SerializeField] private Image healthBarFill;
+        [SerializeField] private TextMeshProUGUI healthText;
+        [SerializeField] private Image lowHealthVignette;
+        
+        [Header("Weapon")]
+        [SerializeField] private TextMeshProUGUI weaponNameText;
+        [SerializeField] private TextMeshProUGUI ammoText;
+        
+        [Header("Crosshair")]
+        [SerializeField] private Image crosshair;
+        [SerializeField] private Color normalColor = Color.white;
+        [SerializeField] private Color hitColor = Color.red;
+        [SerializeField] private float hitFeedbackDuration = 0.1f;
+
+        [Header("Multiplayer")]
+        [SerializeField] private TextMeshProUGUI lobbyInfoText;
+
+        private Health playerHealth;
+        private PlayerWeaponController weaponController;
+        private float crosshairResetTime;
+
+        void OnEnable()
         {
-            FindLocalPlayer();
-            return;
+            PlayerRoot.OnLocalPlayerSpawned += HandleLocalPlayerSpawn;
+            Hide();
         }
-        
-        UpdateHealth();
-        UpdateWeapon();
-        UpdateCrosshair();
-    }
-    
-    private void FindLocalPlayer()
-    {
-        var players = FindObjectsByType<NetworkedFPSController>(FindObjectsSortMode.None);
-        
-        foreach (var player in players)
+
+        void OnDisable()
         {
-            if (player.IsOwner)
+            PlayerRoot.OnLocalPlayerSpawned -= HandleLocalPlayerSpawn;
+        }
+
+        private void HandleLocalPlayerSpawn(PlayerRoot playerRoot)
+        {
+            playerHealth = playerRoot.GetComponent<Health>();
+            playerHealth.OnHealthChanged += HandleLocalPlayerHealthChanged;
+
+            weaponController = playerRoot.GetComponent<PlayerWeaponController>();
+            weaponController.OnWeaponChanged += HandleWeaponChanged;
+            weaponController.OnAmmoChanged += HandleAmmoChanged;
+            weaponController.OnReloadStateChanged += HandleReloadStateChanged;
+            var wd = weaponController.GetCurrentWeaponData();
+            if (wd != null)
+                HandleWeaponChanged(wd);
+        }
+
+        private void OnDestroy()
+        {
+            // Unsubscribe from health changes
+            if (playerHealth != null)
             {
-                playerHealth = player.GetComponent<Health>();
-                weaponManager = player.GetComponent<WeaponManager>();
-                break;
+                playerHealth.OnHealthChanged -= HandleLocalPlayerHealthChanged;
+            }
+            if (weaponController != null)
+            {
+                weaponController.OnWeaponChanged -= HandleWeaponChanged;
+                weaponController.OnAmmoChanged -= HandleAmmoChanged;
+                weaponController.OnReloadStateChanged -= HandleReloadStateChanged;
             }
         }
-    }
-    
-    private void UpdateHealth()
-    {
-        if (playerHealth == null) return;
         
-        float healthPercent = playerHealth.CurrentHealth / playerHealth.MaxHealth;
-        
-        // Health bar fill
-        if (healthBarFill != null)
+        private void HandleWeaponChanged(WeaponData weaponData)
         {
-            healthBarFill.fillAmount = healthPercent;
-            
-            // Color gradient
-            if (healthPercent > 0.5f)
-                healthBarFill.color = Color.Lerp(Color.yellow, Color.green, (healthPercent - 0.5f) * 2f);
-            else
-                healthBarFill.color = Color.Lerp(Color.red, Color.yellow, healthPercent * 2f);
+            weaponNameText.text = weaponData.weaponName;
+            //weaponIcon.sprite = weaponData.weaponIcon; // Add to WeaponData
         }
         
-        // Health number
-        if (healthText != null)
+        private void HandleAmmoChanged(int current, int reserve)
         {
-            healthText.text = Mathf.CeilToInt(playerHealth.CurrentHealth).ToString();
-        }
-        
-        // Low health vignette
-        if (lowHealthVignette != null)
-        {
-            if (healthPercent <= 0.3f)
-            {
-                // Pulse when low
-                float pulse = Mathf.Lerp(0.2f, 0.5f, Mathf.PingPong(Time.time * 2f, 1f));
-                float alpha = Mathf.Lerp(0f, pulse, (0.3f - healthPercent) / 0.3f);
-                
-                Color c = lowHealthVignette.color;
-                c.a = alpha;
-                lowHealthVignette.color = c;
-            }
-            else
-            {
-                // Fade out
-                Color c = lowHealthVignette.color;
-                c.a = 0f;
-                lowHealthVignette.color = c;
-            }
-        }
-    }
-    
-    private void UpdateWeapon()
-    {
-        if (weaponManager == null || weaponManager.CurrentWeapon == null)
-        {
-            if (weaponNameText != null) weaponNameText.text = "NO WEAPON";
-            if (ammoText != null) ammoText.text = "-- / --";
-            return;
-        }
-        
-        Weapon weapon = weaponManager.CurrentWeapon;
-        
-        // Weapon name
-        if (weaponNameText != null)
-        {
-            weaponNameText.text = weapon.Data.weaponName.ToUpper();
-        }
-        
-        // Ammo display
-        if (ammoText != null)
-        {
-            ammoText.text = $"{weapon.CurrentAmmo} / {weapon.ReserveAmmo}";
-            
+            ammoText.text = $"{current} / {reserve}";
+
             // Color based on ammo
-            if (weapon.CurrentAmmo == 0)
+            if (current == 0)
                 ammoText.color = Color.red;
-            else if (weapon.CurrentAmmo <= weapon.MaxAmmo * 0.25f)
+            else if (current <= reserve * 0.25f)
                 ammoText.color = Color.yellow;
             else
                 ammoText.color = Color.white;
         }
-    }
-    
-    private void UpdateCrosshair()
-    {
-        if (crosshair == null) return;
         
-        // Reset after hit feedback
-        if (Time.time > crosshairResetTime)
+        private void HandleReloadStateChanged(bool isReloading)
         {
-            crosshair.color = normalColor;
+            //reloadingIndicator.SetActive(isReloading);
         }
-    }
-    
-    public void ShowHitMarker()
-    {
-        if (crosshair != null)
+
+        private void Update()
         {
-            crosshair.color = hitColor;
-            crosshairResetTime = Time.time + hitFeedbackDuration;
+            UpdateCrosshair();
+            UpdateMultiplayerUI();
+        }
+
+        private void UpdateMultiplayerUI()
+        {
+            // Update lobby info text
+            if (lobbyInfoText != null && SteamLobbyManager.Instance != null)
+            {
+                if (SteamLobbyManager.Instance.IsInLobby)
+                {
+                    lobbyInfoText.text = SteamLobbyManager.Instance.GetLobbyInfo();
+                    lobbyInfoText.gameObject.SetActive(true);
+                }
+                else
+                {
+                    lobbyInfoText.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private void HandleLocalPlayerHealthChanged(float previous, float current, float maxHealth)
+        {
+            if (playerHealth == null) return;
+
+            float healthPercent = current / maxHealth;
+
+            // Health bar fill
+            if (healthBarFill != null)
+            {
+                healthBarFill.fillAmount = healthPercent;
+
+                // Color gradient
+                if (healthPercent > 0.5f)
+                    healthBarFill.color = Color.Lerp(Color.yellow, Color.green, (healthPercent - 0.5f) * 2f);
+                else
+                    healthBarFill.color = Color.Lerp(Color.red, Color.yellow, healthPercent * 2f);
+            }
+
+            // Health number
+            if (healthText != null)
+            {
+                healthText.text = Mathf.CeilToInt(current).ToString();
+            }
+
+            // Low health vignette
+            if (lowHealthVignette != null)
+            {
+                if (healthPercent <= 0.3f)
+                {
+                    // Pulse when low
+                    float pulse = Mathf.Lerp(0.2f, 0.5f, Mathf.PingPong(Time.time * 2f, 1f));
+                    float alpha = Mathf.Lerp(0f, pulse, (0.3f - healthPercent) / 0.3f);
+
+                    Color c = lowHealthVignette.color;
+                    c.a = alpha;
+                    lowHealthVignette.color = c;
+                }
+                else
+                {
+                    // Fade out
+                    Color c = lowHealthVignette.color;
+                    c.a = 0f;
+                    lowHealthVignette.color = c;
+                }
+            }
+        }
+
+        private void UpdateCrosshair()
+        {
+            if (crosshair == null) return;
+            
+            // Reset after hit feedback
+            if (Time.time > crosshairResetTime)
+            {
+                crosshair.color = normalColor;
+            }
+        }
+        
+        public void ShowHitMarker()
+        {
+            if (crosshair != null)
+            {
+                crosshair.color = hitColor;
+                crosshairResetTime = Time.time + hitFeedbackDuration;
+            }
+        }
+
+        public void Show()
+        {
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 1f;
+                canvasGroup.interactable = true;
+                canvasGroup.blocksRaycasts = true;
+            }
+        }
+
+        public void Hide()
+        {
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 0f;
+                canvasGroup.interactable = false;
+                canvasGroup.blocksRaycasts = false;
+            }
         }
     }
 }

@@ -15,7 +15,7 @@ namespace TidesEnd.Combat {
 
         private void HandleDamage(DamageInfo info)
         {
-            Debug.Log($"Took {info.Damage} damage from attacker {info.AttackerId}");
+            Debug.Log($"Took {info.BaseDamage} damage from attacker {info.AttackerId}");
             
             // Play damage sound, screen shake, etc.
         }

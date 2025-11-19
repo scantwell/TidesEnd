@@ -11,6 +11,10 @@ GameObject:
   - component: {fileID: 4243371153570508}
   - component: {fileID: 33898383997488124}
   - component: {fileID: 23904141403194016}
+  - component: {fileID: 3309792734040316911}
+  - component: {fileID: 303645333734375672}
+  - component: {fileID: 8359063140919031875}
+  - component: {fileID: 3559428083018428416}
   m_Layer: 0
   m_Name: Bennelli_M4
   m_TagString: Untagged
@@ -91,6 +95,67 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &3309792734040316911
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1236257789494122}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e0b593d5b29407da0c0fe72a144732b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Weapons.WeaponView
+  weaponData: {fileID: 11400000, guid: 7f22cff207721554abcd26682ac4249c, type: 2}
+--- !u!114 &303645333734375672
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1236257789494122}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ee9df212cfd3ff41bd633c8b5b380cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Weapons.WeaponVFX
+  muzzleFlash: {fileID: 0}
+  muzzlePoint: {fileID: 0}
+  shellEjectionPoint: {fileID: 0}
+  shellCasingPrefab: {fileID: 0}
+  bulletTracerPrefab: {fileID: 0}
+  shellEjectionForce: 3
+--- !u!114 &8359063140919031875
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1236257789494122}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98b2878b20df0394dbfaa403c8914c06, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Weapons.WeaponAnimator
+  animator: {fileID: 0}
+--- !u!114 &3559428083018428416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1236257789494122}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9aa4a2b535f52341b8c5b576ec81720, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Weapons.WeaponAudio
+  fireSound: {fileID: 0}
+  reloadSound: {fileID: 0}
+  emptySound: {fileID: 0}
+  equipSound: {fileID: 0}
+  volume: 1
 --- !u!1 &1326079549577358
 GameObject:
   m_ObjectHideFlags: 0

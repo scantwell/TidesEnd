@@ -2,6 +2,7 @@ using UnityEngine;
 using Unity.Netcode;
 using System.Collections.Generic;
 using System.Linq;
+using TidesEnd.UI;
 
 // Just MonoBehaviour - NOT NetworkBehaviour
 public class SpawnManager : MonoBehaviour
@@ -19,6 +20,16 @@ public class SpawnManager : MonoBehaviour
     public static SpawnManager Instance => instance;
 
     private bool IsServer => NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
+
+    void OnEnable()
+    {
+        PauseMenu.OnSpawnEnemyRequested += SpawnInitialEnemies;
+    }
+    
+    void OnDisable()
+    {
+        PauseMenu.OnSpawnEnemyRequested -= SpawnInitialEnemies;
+    }
 
     private void Awake()
     {

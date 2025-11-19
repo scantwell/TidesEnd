@@ -1,33 +1,41 @@
-using UnityEngine;
 using Unity.Netcode;
 
 namespace TidesEnd.Combat {
     public struct DamageInfo : INetworkSerializable
     {
-        public float Damage;
-        public DamageType Type;
+        // Base values
+        public float BaseDamage;
+        public DamageType DamageType;
+        public DamageSource Source;
+        
+        // Hit context
+        public bool IsHeadshot;
+        public bool IsCritical;
+        public float Distance;
+        
+        // Source reference
         public ulong AttackerId;
-        public Vector3 HitPoint;
-        public Vector3 HitNormal;
+        public int SourceId; // Weapon ID or Ability ID
         
-        public DamageInfo(float damage, DamageType type = DamageType.Normal, ulong attackerId = 0, Vector3 hitPoint = default, Vector3 hitNormal = default)
-        {
-            Damage = damage;
-            Type = type;
-            AttackerId = attackerId;
-            HitPoint = hitPoint;
-            HitNormal = hitNormal;
-        }
+        // Optional: Pre-calculated source properties (for optimization)
+        public float HeadshotMultiplier;
+        public float EffectiveRange;
+        public float MaxRange;
         
-        // INetworkSerializable implementation
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
-            serializer.SerializeValue(ref Damage);
-            serializer.SerializeValue(ref Type);
+            serializer.SerializeValue(ref BaseDamage);
+            serializer.SerializeValue(ref DamageType);
+            serializer.SerializeValue(ref Source);
+            serializer.SerializeValue(ref IsHeadshot);
+            serializer.SerializeValue(ref IsCritical);
+            serializer.SerializeValue(ref Distance);
             serializer.SerializeValue(ref AttackerId);
-            serializer.SerializeValue(ref HitPoint);
-            serializer.SerializeValue(ref HitNormal);
+            serializer.SerializeValue(ref SourceId);
+            serializer.SerializeValue(ref HeadshotMultiplier);
+            serializer.SerializeValue(ref EffectiveRange);
+            serializer.SerializeValue(ref MaxRange);
         }
-    }  
+    }
 }
 

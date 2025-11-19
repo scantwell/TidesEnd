@@ -1,7 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
-using System.Collections.Generic;
 using TidesEnd.Combat;
 
 namespace TidesEnd.Enemy
@@ -27,15 +26,17 @@ namespace TidesEnd.Enemy
         [SerializeField] private Transform attackPoint; // Where attack originates
 
         // Components
-        private NavMeshAgent agent;
-        private Health health;
-        private Animator animator; // Optional
+        [SerializeField]
+        private NavMeshAgent Agent;
+        [SerializeField]
+        private Health Health;
+        [SerializeField]
+        private Animator Animator; // Optional
 
         // State
         private AIState currentState = AIState.Idle;
         private Transform targetPlayer;
         private float lastAttackTime;
-        private Vector3 startPosition;
 
         // Network sync
         private NetworkVariable<AIState> networkState = new NetworkVariable<AIState>(
@@ -46,23 +47,17 @@ namespace TidesEnd.Enemy
 
         private void Awake()
         {
-            agent = GetComponent<NavMeshAgent>();
-            health = GetComponent<Health>();
-            animator = GetComponentInChildren<Animator>();
-
             if (attackPoint == null)
                 attackPoint = transform;
-
-            startPosition = transform.position;
         }
 
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
 
-            if (health != null)
+            if (Health != null)
             {
-                health.OnDied += OnDeath;
+                Health.OnDied += OnDeath;
             }
 
             // Listen for state changes
@@ -72,16 +67,16 @@ namespace TidesEnd.Enemy
             if (!IsServer)
             {
                 // Clients disable NavMeshAgent (server controls movement)
-                if (agent != null)
-                    agent.enabled = false;
+                if (Agent != null)
+                    Agent.enabled = false;
             }
         }
 
         public override void OnNetworkDespawn()
         {
-            if (health != null)
+            if (Health != null)
             {
-                health.OnDied -= OnDeath;
+                Health.OnDied -= OnDeath;
             }
 
             networkState.OnValueChanged -= OnStateChanged;
@@ -93,7 +88,7 @@ namespace TidesEnd.Enemy
         {
             // Only server runs AI
             if (!IsServer) return;
-            if (health != null && !health.IsAlive) return;
+            if (Health != null && !Health.IsAlive) return;
 
             // Run current state behavior
             switch (currentState)
@@ -158,10 +153,10 @@ namespace TidesEnd.Enemy
             }
 
             // Move toward player
-            if (agent != null && agent.enabled)
+            if (Agent != null && Agent.enabled)
             {
-                agent.speed = chaseSpeed;
-                agent.SetDestination(targetPlayer.position);
+                Agent.speed = chaseSpeed;
+                Agent.SetDestination(targetPlayer.position);
             }
         }
 
@@ -183,9 +178,9 @@ namespace TidesEnd.Enemy
             }
 
             // Stop moving
-            if (agent != null && agent.enabled)
+            if (Agent != null && Agent.enabled)
             {
-                agent.SetDestination(transform.position);
+                Agent.SetDestination(transform.position);
             }
 
             // Face player
@@ -214,9 +209,9 @@ namespace TidesEnd.Enemy
             Debug.Log($"[Server] {gameObject.name} attacking {targetPlayer.name}");
 
             // Play attack animation
-            if (animator != null)
+            if (Animator != null)
             {
-                animator.SetTrigger("Attack");
+                Animator.SetTrigger("Attack");
             }
 
             // Deal damage to player
@@ -225,12 +220,14 @@ namespace TidesEnd.Enemy
                 Health playerHealth = targetPlayer.GetComponent<Health>();
                 if (playerHealth != null && playerHealth.IsAlive)
                 {
-                    playerHealth.TakeDamage(
-                        attackDamage,
-                        NetworkObjectId,
-                        targetPlayer.position,
-                        Vector3.up
-                    );
+                    var info = new DamageInfo
+                    {
+                        BaseDamage = attackDamage,
+                        DamageType = DamageType.Physical,
+                        Source = DamageSource.Weapon,
+                        AttackerId = NetworkObjectId
+                    };
+                    playerHealth.TakeDamage(info);
                 }
             }
 
@@ -241,9 +238,9 @@ namespace TidesEnd.Enemy
         [ClientRpc]
         private void PlayAttackAnimationClientRpc()
         {
-            if (animator != null)
+            if (Animator != null)
             {
-                animator.SetTrigger("Attack");
+                Animator.SetTrigger("Attack");
             }
         }
 
@@ -307,11 +304,11 @@ namespace TidesEnd.Enemy
             switch (state)
             {
                 case AIState.Idle:
-                    if (agent != null) agent.speed = patrolSpeed;
+                    if (Animator != null) Animator.speed = patrolSpeed;
                     break;
 
                 case AIState.Chase:
-                    if (agent != null) agent.speed = chaseSpeed;
+                    if (Animator != null) Animator.speed = chaseSpeed;
                     break;
 
                 case AIState.Attack:
@@ -327,9 +324,9 @@ namespace TidesEnd.Enemy
         private void OnStateChanged(AIState oldState, AIState newState)
         {
             // Clients sync animation state
-            if (animator != null)
+            if (Animator != null)
             {
-                animator.SetInteger("State", (int)newState);
+                Animator.SetInteger("State", (int)newState);
             }
         }
 
@@ -340,8 +337,8 @@ namespace TidesEnd.Enemy
             Debug.Log($"{gameObject.name} died!");
 
             // Disable AI
-            if (agent != null)
-                agent.enabled = false;
+            if (Agent != null)
+                Agent.enabled = false;
 
             this.enabled = false;
 

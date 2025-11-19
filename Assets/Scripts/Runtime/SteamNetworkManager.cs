@@ -86,7 +86,7 @@ public class SteamNetworkManager : MonoBehaviour
         
         if (inGamePanel != null)
         {
-            inGamePanel.SetActive(isInGame);
+            //inGamePanel.SetActive(isInGame);
         }
         
         // Update UI state

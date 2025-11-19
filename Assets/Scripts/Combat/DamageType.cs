@@ -1,10 +1,10 @@
 namespace TidesEnd.Combat {
     public enum DamageType
     {
-        Normal,
+        Physical,
         Fire,
-        Explosive,
+        Ice,
         Poison,
-        Electric
+        Healing // For Occultist
     }
 }

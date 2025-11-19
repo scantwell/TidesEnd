@@ -11,6 +11,17 @@ public class SteamManager : MonoBehaviour
     
     public bool IsInitialized { get; private set; }
     public ulong LocalSteamId { get; private set; }
+
+    /// <summary>
+    /// Get the current Steam username
+    /// </summary>
+    public string GetUsername()
+    {
+        if (!IsInitialized || !SteamClient.IsValid)
+            return "Not Connected";
+
+        return SteamClient.Name;
+    }
     
     private void Awake()
     {

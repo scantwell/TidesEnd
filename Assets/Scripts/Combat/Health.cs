@@ -1,6 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 using System;
+using TidesEnd.Player;
 
 namespace TidesEnd.Combat {
     public class Health : NetworkBehaviour, IDamageable
@@ -10,18 +11,6 @@ namespace TidesEnd.Combat {
         [SerializeField] private bool regenerateHealth = false;
         [SerializeField] private float regenRate = 5f; // HP per second
         [SerializeField] private float regenDelay = 3f; // Seconds after damage before regen starts
-        
-        [Header("Damage Modifiers")]
-        [SerializeField] private float normalDamageMultiplier = 1f;
-        [SerializeField] private float fireDamageMultiplier = 1f;
-        [SerializeField] private float explosiveDamageMultiplier = 1f;
-        [SerializeField] private float poisonDamageMultiplier = 1f;
-        [SerializeField] private float electricDamageMultiplier = 1f;
-        
-        [Header("Special Zones")]
-        [SerializeField] private bool hasHeadshot = true;
-        [SerializeField] private Transform headTransform;
-        [SerializeField] private float headshotRadius = 0.3f;
         
         [Header("Death Settings")]
         [SerializeField] private bool destroyOnDeath = false;
@@ -50,6 +39,7 @@ namespace TidesEnd.Combat {
         public event Action<DamageInfo> OnDamaged;
         public event Action OnDied;
         public event Action OnRevived;
+        public event Action<float, float, float> OnHealthChanged;
         
         // IDamageable implementation
         public bool IsAlive => !isDead.Value;
@@ -57,35 +47,31 @@ namespace TidesEnd.Combat {
         public float MaxHealth => maxHealth;
         public GameObject GameObject => gameObject;
         public Transform Transform => transform;
-        
-        private void Awake()
-        {
-            // Auto-find head if not assigned
-            if (hasHeadshot && headTransform == null)
-            {
-                headTransform = transform.Find("Head") ?? transform.Find("head");
-            }
-        }
-        
+
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            
+
+            // Register listeners FIRST so they catch all future changes
+            currentHealth.OnValueChanged += OnHealthValueChanged;
+            isDead.OnValueChanged += OnDeathStateChanged;
+
             // Server initializes health
             if (IsServer)
             {
                 currentHealth.Value = maxHealth;
                 isDead.Value = false;
+                Debug.Log($"[Health.OnNetworkSpawn] Server initialized {gameObject.name}: health={maxHealth}, isDead=false");
             }
-            
-            // Listen for changes
-            currentHealth.OnValueChanged += OnHealthChanged;
-            isDead.OnValueChanged += OnDeathStateChanged;
+            else
+            {
+                Debug.Log($"[Health.OnNetworkSpawn] Client registered listener for {gameObject.name}. Current health from sync: {currentHealth.Value}");
+            }
         }
         
         public override void OnNetworkDespawn()
         {
-            currentHealth.OnValueChanged -= OnHealthChanged;
+            currentHealth.OnValueChanged -= OnHealthValueChanged;
             isDead.OnValueChanged -= OnDeathStateChanged;
             base.OnNetworkDespawn();
         }
@@ -105,93 +91,39 @@ namespace TidesEnd.Combat {
             }
         }
         
-        public void TakeDamage(float damage, ulong attackerId = 0, Vector3 hitPoint = default, Vector3 hitNormal = default)
+        public void TakeDamage(DamageInfo info)
         {
             // If we're on the server, process directly
-            if (IsServer)
-            {
-                ProcessDamage(damage, attackerId, hitPoint, hitNormal);
-            }
-            else
-            {
-                // If we're on a client, request the server to process damage
-                RequestDamageServerRpc(damage, attackerId, hitPoint, hitNormal);
-            }
-        }
-
-        /// <summary>
-        /// ServerRpc called by clients to request damage processing on the server.
-        /// This allows client-side projectile hits to be validated and applied by the server.
-        /// RequireOwnership = false allows any client to call this on any Health component.
-        /// </summary>
-        [ServerRpc(RequireOwnership = false)]
-        private void RequestDamageServerRpc(float damage, ulong attackerId, Vector3 hitPoint, Vector3 hitNormal)
-        {
-            // Server processes the damage request
-            ProcessDamage(damage, attackerId, hitPoint, hitNormal);
-        }
-
-        /// <summary>
-        /// Server-authoritative damage processing.
-        /// Only runs on server, applies damage, checks for death, and notifies clients.
-        /// </summary>
-        private void ProcessDamage(float damage, ulong attackerId, Vector3 hitPoint, Vector3 hitNormal)
-        {
             if (!IsServer) return;
-            if (isDead.Value) return;
-            if (damage <= 0) return;
 
-            // Check for headshot
-            bool isHeadshot = false;
-            float damageMultiplier = 1f;
-
-            if (hasHeadshot && headTransform != null && hitPoint != default)
-            {
-                float distanceToHead = Vector3.Distance(hitPoint, headTransform.position);
-                if (distanceToHead <= headshotRadius)
-                {
-                    isHeadshot = true;
-                    // Headshot multiplier would come from weapon, but apply base multiplier here
-                    damageMultiplier = 2f;
-                    Debug.Log($"[Server] HEADSHOT on {gameObject.name}!");
-                }
-            }
-
-            // Apply damage type multiplier (would be passed in DamageInfo in full implementation)
-            // For now, just apply base multiplier
-            float finalDamage = damage * damageMultiplier;
-
-            // Apply damage
+            float finalDamage = DamageCalculator.CalculateDamage(info, this);
+            float oldHealth = currentHealth.Value;
             currentHealth.Value = Mathf.Max(0, currentHealth.Value - finalDamage);
             lastDamageTime = Time.time;
 
-            Debug.Log($"[Server] {gameObject.name} took {finalDamage} damage from attacker {attackerId}. Health: {currentHealth.Value}/{maxHealth}");
-
-            // Create damage info
-            DamageInfo damageInfo = new DamageInfo(finalDamage, DamageType.Normal, attackerId, hitPoint, hitNormal);
+            Debug.Log($"[Health.TakeDamage] {gameObject.name} took {finalDamage} damage. Health: {oldHealth} -> {currentHealth.Value}");
 
             // Notify clients of damage
-            NotifyDamageClientRpc(damageInfo, isHeadshot);
+            NotifyDamageClientRpc(info);
 
             // Check for death
             if (currentHealth.Value <= 0 && !isDead.Value)
             {
-                Die(attackerId);
+                Die(info.AttackerId);
             }
         }
+
         
         [ClientRpc]
-        private void NotifyDamageClientRpc(DamageInfo damageInfo, bool isHeadshot)
+        private void NotifyDamageClientRpc(DamageInfo damageInfo)
         {
-            OnDamaged?.Invoke(damageInfo);
-            
+            Debug.Log($"[NotifyDamageClientRpc] Called on {gameObject.name}, IsOwner={IsOwner}");
+            if (IsOwner) {
+                Debug.Log($"[NotifyDamageClientRpc] Invoking OnDamaged event");
+                OnDamaged?.Invoke(damageInfo);
+            }
             // Play damage effects (blood, sparks, etc.)
             // TODO: Implement damage effect system
-            
-            if (isHeadshot)
-            {
-                Debug.Log($"[Client] Headshot effect on {gameObject.name}");
-            }
         }
         
         private void Die(ulong killerId)
@@ -273,13 +205,13 @@ namespace TidesEnd.Combat {
             }
             
             // Disable scripts
-            var fpsController = GetComponent<NetworkedFPSController>();
+            var fpsController = GetComponent<PlayerController>();
             if (fpsController != null)
             {
                 fpsController.enabled = false;
             }
             
-            var combat = GetComponent<PlayerCombat>();
+            var combat = GetComponent<PlayerWeaponController>();
             if (combat != null)
             {
                 combat.enabled = false;
@@ -359,25 +291,20 @@ namespace TidesEnd.Combat {
             Collider col = GetComponent<Collider>();
             if (col != null) col.enabled = true;
             
-            var fpsController = GetComponent<NetworkedFPSController>();
+            var fpsController = GetComponent<PlayerController>();
             if (fpsController != null) fpsController.enabled = true;
             
-            var combat = GetComponent<PlayerCombat>();
+            var combat = GetComponent<PlayerWeaponController>();
             if (combat != null) combat.enabled = true;
             
             Debug.Log($"[Client] {gameObject.name} revived!");
         }
         
-        private void OnHealthChanged(float previousValue, float newValue)
+        private void OnHealthValueChanged(float previousValue, float newValue)
         {
-            // Update UI or other systems
-            float healthPercent = newValue / maxHealth;
+            OnHealthChanged?.Invoke(previousValue, newValue, maxHealth);
             
-            // Visual feedback based on health
-            if (healthPercent <= 0.25f)
-            {
-                // Low health effect (red screen, heavy breathing, etc.)
-            }
+            Debug.Log($"Health changed: {previousValue} → {newValue}");
         }
         
         private void OnDeathStateChanged(bool previousValue, bool newValue)
@@ -400,15 +327,6 @@ namespace TidesEnd.Combat {
         public bool IsCriticalHealth()
         {
             return GetHealthPercent() <= 0.25f;
-        }
-        
-        // Debug visualization
-        private void OnDrawGizmosSelected()
-        {
-            if (!hasHeadshot || headTransform == null) return;
-            
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(headTransform.position, headshotRadius);
         }
     }
 }

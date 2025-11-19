@@ -12,7 +12,8 @@ GameObject:
   - component: {fileID: 8876339495496637763}
   - component: {fileID: 2739199920949540819}
   - component: {fileID: 3740473231024989550}
-  m_Layer: 10
+  - component: {fileID: 1384810124845245085}
+  m_Layer: 11
   m_Name: Capsule
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -105,14 +106,29 @@ CapsuleCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.5
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1384810124845245085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4436625210781787975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa82e863004a97c4c9c51fc5f1ca3dfe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Combat.HitZone
+  zoneType: 1
+  customMultiplier: 0
+  ownerObject: {fileID: 4871277079758495943}
 --- !u!1 &4871277079758495943
 GameObject:
   m_ObjectHideFlags: 0
@@ -124,7 +140,6 @@ GameObject:
   - component: {fileID: 8453934836645618158}
   - component: {fileID: 6763373348104407708}
   - component: {fileID: 2373529199647840962}
-  - component: {fileID: 8521991676544031097}
   - component: {fileID: 6930055235864073864}
   - component: {fileID: 5188790216881890461}
   - component: {fileID: 9180864749760152939}
@@ -223,29 +238,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!136 &8521991676544031097
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4871277079758495943}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 1
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!54 &6930055235864073864
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -312,14 +304,6 @@ MonoBehaviour:
   regenerateHealth: 0
   regenRate: 5
   regenDelay: 3
-  normalDamageMultiplier: 1
-  fireDamageMultiplier: 1
-  explosiveDamageMultiplier: 1
-  poisonDamageMultiplier: 1
-  electricDamageMultiplier: 1
-  hasHeadshot: 1
-  headTransform: {fileID: 0}
-  headshotRadius: 0.3
   destroyOnDeath: 1
   destroyDelay: 5
   deathEffectPrefab: {fileID: 0}
@@ -346,3 +330,6 @@ MonoBehaviour:
   chaseSpeed: 3.5
   patrolSpeed: 2
   attackPoint: {fileID: 0}
+  Agent: {fileID: 5188790216881890461}
+  Health: {fileID: 9180864749760152939}
+  Animator: {fileID: 0}
