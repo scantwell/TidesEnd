@@ -45,12 +45,14 @@ GameObject:
   - component: {fileID: 2624984651126835760}
   - component: {fileID: 4996998700851171850}
   - component: {fileID: 8972219454977439069}
+  - component: {fileID: -8219486542441876579}
   - component: {fileID: 559861637486467190}
+  - component: {fileID: 94286246994560397}
+  - component: {fileID: 795344519990008592}
   - component: {fileID: 7109597912834447076}
   - component: {fileID: 4012188908751656549}
-  - component: {fileID: 795344519990008592}
-  - component: {fileID: -8219486542441876579}
   - component: {fileID: -9078359611029396345}
+  - component: {fileID: 5186509967211754553}
   m_Layer: 8
   m_Name: Player
   m_TagString: Player
@@ -88,7 +90,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3588232768
+  GlobalObjectIdHash: 1183010623
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -207,6 +209,25 @@ CharacterController:
   m_SkinWidth: 0.02
   m_MinMoveDistance: 0
   m_Center: {x: 0, y: 0.93, z: 0}
+--- !u!114 &-8219486542441876579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2267027562404787343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4fb9103ba4f7cc45808b219e5de0b0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Abilities.AbilityUser
+  ShowTopMostFoldoutHeaderGroup: 1
+  entityID:
+  passiveAbility: {fileID: 0}
+  activeAbilities:
+  - {fileID: 11400000, guid: 60008252b88fb8843bdba6554d442d84, type: 2}
+  - {fileID: 11400000, guid: 1e0b60ac963d7354faa3e55fd6a2365c, type: 2}
+  debugMode: 0
 --- !u!114 &559861637486467190
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -230,6 +251,47 @@ MonoBehaviour:
   autoRespawn: 1
   respawnDelay: 5
   respawnHealth: 100
+  currentHealth:
+    m_InternalValue: 100
+--- !u!114 &94286246994560397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2267027562404787343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82403202d03a5484385468d268733548, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Player.PlayerAbilityInput
+  ShowTopMostFoldoutHeaderGroup: 1
+  abilityUser: {fileID: -8219486542441876579}
+  playerCamera: {fileID: 0}
+  maxGroundTargetDistance: 50
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  showTargetingIndicators: 1
+  ability1Color: {r: 1, g: 0.5, b: 0, a: 0.7}
+  ability2Color: {r: 0.5, g: 0, b: 1, a: 0.7}
+--- !u!114 &795344519990008592
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2267027562404787343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f65c171d31c14b489431226a2eaf5e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCameraSetup
+  ShowTopMostFoldoutHeaderGroup: 1
+  virtualCamera: {fileID: 8300714810414582143}
+  cameraTarget: {fileID: 0}
+  ownerPriority: 10
+  nonOwnerPriority: 0
 --- !u!114 &7109597912834447076
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -252,7 +314,6 @@ MonoBehaviour:
   weaponHitLayers:
     serializedVersion: 2
     m_Bits: 2688
-  maxShootRange: 100
   showDebugRays: 1
 --- !u!114 &4012188908751656549
 MonoBehaviour:
@@ -268,41 +329,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Player.PlayerInventory
   ShowTopMostFoldoutHeaderGroup: 1
   maxInventorySlots: 10
---- !u!114 &795344519990008592
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2267027562404787343}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f65c171d31c14b489431226a2eaf5e8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerCameraSetup
-  ShowTopMostFoldoutHeaderGroup: 1
-  virtualCamera: {fileID: 8300714810414582143}
-  cameraTarget: {fileID: 0}
-  ownerPriority: 10
-  nonOwnerPriority: 0
---- !u!114 &-8219486542441876579
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2267027562404787343}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e4fb9103ba4f7cc45808b219e5de0b0b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Abilities.AbilityUser
-  ShowTopMostFoldoutHeaderGroup: 1
-  entityType: 0
-  entityID: 
-  passiveAbility: {fileID: 0}
-  activeAbilities: []
-  debugMode: 0
 --- !u!114 &-9078359611029396345
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -323,6 +349,52 @@ MonoBehaviour:
   localPlayerColor: {r: 0, g: 1, b: 0, a: 1}
   remotePlayerColor: {r: 1, g: 0, b: 0, a: 1}
   gizmoSize: 0.5
+--- !u!114 &5186509967211754553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2267027562404787343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9daa73f31634434f877ef9cca05abd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Abilities.EntityStats
+  ShowTopMostFoldoutHeaderGroup: 1
+  characterStats: {fileID: 11400000, guid: 8bd9ee4912a08a246aa383fd32972355, type: 2}
+  entityType: 0
+  debugMode: 0
+  WalkSpeed:
+    m_InternalValue: 0
+  SprintSpeed:
+    m_InternalValue: 0
+  JumpHeight:
+    m_InternalValue: 0
+  MaxHealth:
+    m_InternalValue: 0
+  RegenRate:
+    m_InternalValue: 0
+  RegenDelay:
+    m_InternalValue: 0
+  FireRate:
+    m_InternalValue: 0
+  ReloadSpeed:
+    m_InternalValue: 0
+  MagazineSize:
+    m_InternalValue: 0
+  Spread:
+    m_InternalValue: 0
+  Recoil:
+    m_InternalValue: 0
+  DamageOutput:
+    m_InternalValue: 0
+  CriticalChance:
+    m_InternalValue: 0
+  Armor:
+    m_InternalValue: 0
+  ActiveStatuses:
+    m_InternalValue: 0
 --- !u!1 &3019489160816773588
 GameObject:
   m_ObjectHideFlags: 0

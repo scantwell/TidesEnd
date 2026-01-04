@@ -11,9 +11,14 @@ namespace TidesEnd.Abilities
     [Serializable]
     public class DamageEffect : AbilityEffect
     {
+        public override EffectType EffectType => EffectType.Damage;
+
         [Header("Damage Parameters")]
+        [Tooltip("Amount of damage to deal")]
+        public float damageAmount = 10f;
+
         [Tooltip("Type of damage dealt")]
-        public DamageType damageType = DamageType.Normal;
+        public DamageType damageType = DamageType.Physical;
 
         [Tooltip("Ignore armor/resistances?")]
         public bool ignoreArmor = false;
@@ -29,11 +34,20 @@ namespace TidesEnd.Abilities
             // Check if target can take damage
             if (target.TryGetComponent<IDamageable>(out var damageable))
             {
-                damageable.TakeDamage(magnitude,
-                    caster.NetworkObjectId,
-                    context.hitPosition != Vector3.zero ? context.hitPosition : target.transform.position,
-                    context.targetDirection
-                );
+                // Create DamageInfo struct for ability damage
+                var damageInfo = new DamageInfo
+                {
+                    BaseDamage = damageAmount,
+                    DamageType = damageType,
+                    Source = DamageSource.Ability,
+                    IsCritical = canCrit,
+                    IsHeadshot = false, // Abilities don't use headshots by default
+                    AttackerId = caster.NetworkObjectId,
+                    SourceId = 0, // TODO: Pass ability ID from AbilityData
+                    Distance = Vector3.Distance(caster.transform.position, target.transform.position)
+                };
+
+                damageable.TakeDamage(damageInfo);
             }
         }
 

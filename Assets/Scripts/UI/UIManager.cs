@@ -13,6 +13,7 @@ namespace TidesEnd.UI
         private enum UIState
         {
             MainMenu,
+            Lobby,
             InGame,
             Paused
         }
@@ -24,6 +25,7 @@ namespace TidesEnd.UI
         [SerializeField] private MainMenuPanel mainMenuPanel;
         [SerializeField] private HUDManager hudManager;
         [SerializeField] private PauseMenu pauseMenu;
+        [SerializeField] private ClassSelectionUI lobby;
         
         private UIState currentState = UIState.MainMenu;
         
@@ -50,6 +52,7 @@ namespace TidesEnd.UI
                     ShowInGame();
                     break;
                 
+                case UIState.Lobby:
                 case UIState.MainMenu:
                     // Do nothing or show quit confirmation
                     break;
@@ -98,12 +101,22 @@ namespace TidesEnd.UI
             PauseMenu.OnMainMenuRequested -= ReturnToMainMenu;
         }
 
+        public void ShowLobby()
+        {
+            currentState = UIState.Lobby;
+            if (mainMenuPanel != null) mainMenuPanel.Hide();
+            if (hudManager != null) hudManager.Hide();
+            if (pauseMenu != null) pauseMenu.Hide();
+            if (lobby != null) lobby.Show();
+        }
+
         public void ShowMainMenu()
         {
             currentState = UIState.MainMenu;
-            if (mainMenuPanel != null) mainMenuPanel.Show();
             if (hudManager != null) hudManager.Hide();
             if (pauseMenu != null) pauseMenu.Hide();
+            if (lobby != null) lobby.Hide();
+            if (mainMenuPanel != null) mainMenuPanel.Show();
         }
 
         public void ShowInGame()
@@ -113,8 +126,9 @@ namespace TidesEnd.UI
             Cursor.visible = false;
             currentState = UIState.InGame;
             if (mainMenuPanel != null) mainMenuPanel.Hide();
+            if (pauseMenu != null) pauseMenu.Hide();  
+            if (lobby != null) lobby.Hide();          
             if (hudManager != null) hudManager.Show();
-            if (pauseMenu != null) pauseMenu.Hide();            
         }
 
         public void ShowPauseMenu()
@@ -124,6 +138,7 @@ namespace TidesEnd.UI
             Cursor.visible = true;
             currentState = UIState.Paused;
             if (hudManager != null) hudManager.Hide();
+            if (lobby != null) lobby.Hide();
             if (pauseMenu != null) pauseMenu.Show();           
         }
 

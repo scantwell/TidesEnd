@@ -48,6 +48,7 @@ namespace TidesEnd.Abilities
 
         /// <summary>
         /// Helper to spawn VFX at a position.
+        /// For non-networked VFX only (particles, visual effects).
         /// </summary>
         protected GameObject SpawnVFX(GameObject prefab, Vector3 position, Quaternion rotation)
         {
@@ -55,6 +56,33 @@ namespace TidesEnd.Abilities
                 return null;
 
             return GameObject.Instantiate(prefab, position, rotation);
+        }
+
+        /// <summary>
+        /// Helper to spawn a networked object (projectile, deployable, zone).
+        /// Automatically spawns as NetworkObject if component exists.
+        /// </summary>
+        protected GameObject SpawnNetworkedObject(GameObject prefab, Vector3 position, Quaternion rotation)
+        {
+            if (prefab == null)
+                return null;
+
+            GameObject obj = GameObject.Instantiate(prefab, position, rotation);
+
+            // Check if this is a NetworkObject and spawn it
+            if (obj.TryGetComponent<Unity.Netcode.NetworkObject>(out var netObj))
+            {
+                if (!netObj.IsSpawned)
+                {
+                    netObj.Spawn();
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[AbilityInstance] Prefab '{prefab.name}' has no NetworkObject component! Will not sync in multiplayer.");
+            }
+
+            return obj;
         }
 
         /// <summary>

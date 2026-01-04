@@ -16,32 +16,32 @@ namespace TidesEnd.Abilities
 
         public override void Execute()
         {
-            // Spawn deployable object at target position
-            if (abilityData.activeVFXPrefab != null)
+            // Deployable abilities MUST have a prefab with visual representation
+            if (abilityData.activeVFXPrefab == null)
             {
-                deployedObject = SpawnVFX(
-                    abilityData.activeVFXPrefab,
-                    context.targetPosition,
-                    Quaternion.identity
-                );
-            }
-            else
-            {
-                Debug.LogWarning($"[DeployableAbilityInstance] No activeVFXPrefab set for {abilityData.abilityName}");
+                Debug.LogError($"[DeployableAbilityInstance] Deployable ability '{abilityData.abilityName}' requires activeVFXPrefab!");
                 return;
             }
 
-            // Initialize deployable component if it exists
-            if (deployedObject.TryGetComponent<DeployableObject>(out var deployable))
+            // Spawn deployable object at target position (networked)
+            deployedObject = SpawnNetworkedObject(
+                abilityData.activeVFXPrefab,
+                context.targetPosition,
+                Quaternion.identity
+            );
+
+            if (deployedObject == null)
             {
-                deployable.Initialize(abilityData, caster);
+                Debug.LogError($"[DeployableAbilityInstance] Failed to spawn deployable object for '{abilityData.abilityName}'");
+                return;
             }
-            else
+
+            // Initialize deployable component (add if not present on prefab)
+            if (!deployedObject.TryGetComponent<DeployableObject>(out var deployable))
             {
-                // Add component if prefab doesn't have one
-                var newDeployable = deployedObject.AddComponent<DeployableObject>();
-                newDeployable.Initialize(abilityData, caster);
+                deployable = deployedObject.AddComponent<DeployableObject>();
             }
+            deployable.Initialize(abilityData, caster);
 
             // Play deploy audio
             PlayAudio(abilityData.castSound, context.targetPosition);

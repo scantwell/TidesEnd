@@ -16,20 +16,27 @@ namespace TidesEnd.Abilities
 
         public override void Execute()
         {
-            // Spawn zone VFX at target position
-            if (abilityData.activeVFXPrefab != null)
+            // Zone abilities MUST have a visual representation (prefab)
+            if (abilityData.activeVFXPrefab == null)
             {
-                zoneObject = SpawnVFX(abilityData.activeVFXPrefab, context.targetPosition, Quaternion.identity);
-            }
-            else
-            {
-                // Create simple zone GameObject if no VFX prefab specified
-                zoneObject = new GameObject($"Zone_{abilityData.abilityName}");
-                zoneObject.transform.position = context.targetPosition;
+                Debug.LogError($"[ZoneAbilityInstance] Zone ability '{abilityData.abilityName}' requires activeVFXPrefab! Players need to see the zone to use it.");
+                return;
             }
 
-            // Add DeployableObject component to handle zone logic
-            var deployable = zoneObject.AddComponent<DeployableObject>();
+            // Spawn zone VFX at target position (networked)
+            zoneObject = SpawnNetworkedObject(abilityData.activeVFXPrefab, context.targetPosition, Quaternion.identity);
+
+            if (zoneObject == null)
+            {
+                Debug.LogError($"[ZoneAbilityInstance] Failed to spawn zone object for '{abilityData.abilityName}'");
+                return;
+            }
+
+            // Add DeployableObject component to handle zone logic if not already present
+            if (!zoneObject.TryGetComponent<DeployableObject>(out var deployable))
+            {
+                deployable = zoneObject.AddComponent<DeployableObject>();
+            }
             deployable.Initialize(abilityData, caster);
 
             // Play cast audio

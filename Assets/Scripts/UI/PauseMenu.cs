@@ -37,9 +37,9 @@ namespace TidesEnd.UI
             if (inviteFriendsButton != null)
                 inviteFriendsButton.onClick.AddListener(HandleInviteFriendsButton);
             // Show invite button only if we're in a Steam lobby as the owner
-            bool showInviteButton = SteamLobbyManager.Instance != null &&
-                                   SteamLobbyManager.Instance.IsInLobby &&
-                                   SteamLobbyManager.Instance.IsLobbyOwner;
+            bool showInviteButton = SteamLobbySystem.Instance != null &&
+                                   SteamLobbySystem.Instance.IsInLobby &&
+                                   SteamLobbySystem.Instance.IsLobbyOwner;
 
             if (inviteFriendsButton != null)
             {
@@ -91,9 +91,9 @@ namespace TidesEnd.UI
 
         private void HandleInviteFriendsButton()
         {
-            if (SteamLobbyManager.Instance != null)
+            if (SteamLobbySystem.Instance != null)
             {
-                SteamLobbyManager.Instance.OpenInviteDialog();
+                SteamLobbySystem.Instance.OpenInviteDialog();
             }
         }
 

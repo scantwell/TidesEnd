@@ -12,14 +12,8 @@ namespace TidesEnd.Abilities
     public abstract class AbilityEffect
     {
         [Header("Effect Configuration")]
-        [Tooltip("Type of effect this applies")]
-        public EffectType effectType;
-
-        [Tooltip("Magnitude/strength of the effect (damage, heal amount, multiplier, etc.)")]
-        public float magnitude;
-
-        [Tooltip("Duration the effect lasts (0 = instant/permanent)")]
-        public float duration;
+        [Tooltip("Type of effect this applies (auto-set by concrete class)")]
+        public abstract EffectType EffectType { get; }
 
         [Header("Targeting Filters")]
         [Tooltip("Can this effect apply to allies?")]
@@ -74,17 +68,27 @@ namespace TidesEnd.Abilities
         /// <summary>
         /// Determine if target is an ally of the caster.
         /// Players are allies with players, enemies are allies with enemies.
+        /// Uses EntityStats.EntityType for targeting instead of AbilityUser.entityType.
         /// </summary>
         protected virtual bool IsAlly(AbilityUser caster, GameObject target)
         {
-            // Check if target has AbilityUser component
-            if (target.TryGetComponent<AbilityUser>(out var targetAbilityUser))
+            // Get caster's entity type from their EntityStats
+            if (!caster.TryGetComponent<EntityStats>(out var casterStats))
             {
-                return caster.entityType == targetAbilityUser.entityType;
+                Debug.LogWarning($"[AbilityEffect] Caster '{caster.name}' does not have EntityStats component!");
+                return false;
             }
 
-            // Fallback: check tags
-            bool casterIsPlayer = caster.entityType == EntityType.Player;
+            EntityType casterType = casterStats.EntityType;
+
+            // Check if target has EntityStats component
+            if (target.TryGetComponent<EntityStats>(out var targetStats))
+            {
+                return casterType == targetStats.EntityType;
+            }
+
+            // Fallback: check tags (for non-entity targets)
+            bool casterIsPlayer = casterType == EntityType.Player;
             bool targetIsPlayer = target.CompareTag("Player");
             return casterIsPlayer == targetIsPlayer;
         }
@@ -114,6 +118,11 @@ namespace TidesEnd.Abilities
         ModifySaturation,   // Change breach saturation gain rate
         ModifyFireRate,     // Change weapon fire rate
         ModifyReloadSpeed,  // Change weapon reload speed
-        CreateDeployable    // Spawn deployable object (shield, totem, etc.)
+        CreateDeployable,   // Spawn deployable object (shield, totem, etc.)
+        ModifyMovement,     // Modify movement stats (walk/sprint speed, jump height)
+        ModifyHealthStats,  // Modify health stats (max health, regen rate, regen delay)
+        ModifyWeaponStats,  // Modify weapon stats (fire rate, reload speed, magazine size, spread, recoil)
+        ModifyCombatStats,  // Modify combat stats (damage output, critical chance, armor)
+        ApplyStatus         // Apply status effects (stunned, disarmed, silenced, rooted, etc.)
     }
 }

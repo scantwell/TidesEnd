@@ -10,6 +10,8 @@ namespace TidesEnd.Abilities
     [Serializable]
     public class TeleportEffect : AbilityEffect
     {
+        public override EffectType EffectType => EffectType.Teleport;
+
         [Header("Teleport Parameters")]
         [Tooltip("How to determine the teleport destination")]
         public TeleportMode mode = TeleportMode.ToPosition;

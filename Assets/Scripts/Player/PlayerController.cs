@@ -3,18 +3,12 @@ using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Cinemachine;
-using System;
 using TidesEnd.Weapons;
+using TidesEnd.Abilities;
 
 public class PlayerController : NetworkBehaviour
 {
     [Header("Movement")]
-    [Tooltip("Base walking speed in meters per second")]
-    [SerializeField] private float walkSpeed = 5f;
-    [Tooltip("Sprint speed in meters per second")]
-    [SerializeField] private float sprintSpeed = 8f;
-    [Tooltip("Height of jump in meters")]
-    [SerializeField] private float jumpHeight = 1.5f;
     [Tooltip("Gravity force applied to player")]
     [SerializeField] private float gravity = -15f;
 
@@ -34,6 +28,7 @@ public class PlayerController : NetworkBehaviour
 
     private CharacterController characterController;
     private NetworkTransform networkTransform;
+    private EntityStats entityStats;
     private Vector3 velocity;
     private float cameraPitch = 0f;
     private bool isGrounded;
@@ -64,6 +59,7 @@ public class PlayerController : NetworkBehaviour
     {
         characterController = GetComponent<CharacterController>();
         networkTransform = GetComponent<NetworkTransform>();
+        entityStats = GetComponent<EntityStats>();
 
         if (cameraTarget == null)
             cameraTarget = virtualCamera?.transform;
@@ -288,39 +284,39 @@ public class PlayerController : NetworkBehaviour
     
     private void HandleMovement()
     {
-        if (characterController == null) return;
-        
+        if (characterController == null || entityStats == null) return;
+
         var keyboard = Keyboard.current;
         if (keyboard == null) return;
-        
+
         isGrounded = characterController.isGrounded;
-        
+
         if (isGrounded && velocity.y < 0)
             velocity.y = -2f;
-        
+
         // Get input
         Vector2 moveInput = Vector2.zero;
         if (keyboard.wKey.isPressed) moveInput.y += 1f;
         if (keyboard.sKey.isPressed) moveInput.y -= 1f;
         if (keyboard.aKey.isPressed) moveInput.x -= 1f;
         if (keyboard.dKey.isPressed) moveInput.x += 1f;
-        
+
         bool sprint = keyboard.leftShiftKey.isPressed;
         bool jump = keyboard.spaceKey.wasPressedThisFrame;
-        
-        // Calculate movement
-        float currentSpeed = sprint ? sprintSpeed : walkSpeed;
+
+        // Get current speed from EntityStats (already includes all modifiers)
+        float currentSpeed = sprint ? entityStats.SprintSpeed.Value : entityStats.WalkSpeed.Value;
         Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
         move = move.normalized * currentSpeed;
-        
-        // Jump
+
+        // Jump - use EntityStats jump height
         if (jump && isGrounded)
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-        
+            velocity.y = Mathf.Sqrt(entityStats.JumpHeight.Value * -2f * gravity);
+
         // Gravity
         velocity.y += gravity * Time.deltaTime;
         move.y = velocity.y;
-        
+
         // Move
         characterController.Move(move * Time.deltaTime);
     }

@@ -11,6 +11,8 @@ namespace TidesEnd.Abilities
     [Serializable]
     public class SummonEffect : AbilityEffect
     {
+        public override EffectType EffectType => EffectType.Summon;
+
         [Header("Summon Parameters")]
         [Tooltip("Prefab to spawn (must have NetworkObject component)")]
         public GameObject summonPrefab;

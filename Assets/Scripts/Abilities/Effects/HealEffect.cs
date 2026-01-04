@@ -11,8 +11,13 @@ namespace TidesEnd.Abilities
     [Serializable]
     public class HealEffect : AbilityEffect
     {
+        public override EffectType EffectType => EffectType.Heal;
+
         [Header("Heal Parameters")]
-        [Tooltip("Is magnitude a percentage of max health? (false = flat amount)")]
+        [Tooltip("Amount of health to restore")]
+        public float healAmount = 20f;
+
+        [Tooltip("Is healAmount a percentage of max health? (false = flat amount)")]
         public bool isPercentage = false;
 
         [Tooltip("Heal over time? (true = HoT, false = instant)")]
@@ -20,6 +25,9 @@ namespace TidesEnd.Abilities
 
         [Tooltip("If healing over time, tick interval in seconds")]
         public float tickInterval = 1f;
+
+        [Tooltip("Duration of the heal over time effect")]
+        public float duration = 0f;
 
         public override void Apply(AbilityUser caster, GameObject target, AbilityContext context)
         {
@@ -29,25 +37,25 @@ namespace TidesEnd.Abilities
             // Check if target has health component
             if (target.TryGetComponent<Health>(out var health))
             {
-                float healAmount = magnitude;
+                float actualHealAmount = healAmount;
 
                 // Calculate heal amount based on percentage flag
                 if (isPercentage)
                 {
-                    healAmount = health.MaxHealth * (magnitude / 100f);
+                    actualHealAmount = health.MaxHealth * (healAmount / 100f);
                 }
 
                 // Apply heal
                 if (!isOverTime)
                 {
                     // Instant heal
-                    health.Heal(healAmount);
+                    health.Heal(actualHealAmount);
                 }
                 else
                 {
                     // Heal over time - will be handled by AbilityInstance Update loop
                     // This is just initial tick
-                    health.Heal(healAmount);
+                    health.Heal(actualHealAmount);
                 }
             }
         }
@@ -64,12 +72,12 @@ namespace TidesEnd.Abilities
         {
             if (target.TryGetComponent<Health>(out var health))
             {
-                float healAmount = magnitude;
+                float actualHealAmount = healAmount;
                 if (isPercentage)
                 {
-                    healAmount = health.MaxHealth * (magnitude / 100f);
+                    actualHealAmount = health.MaxHealth * (healAmount / 100f);
                 }
-                health.Heal(healAmount);
+                health.Heal(actualHealAmount);
             }
         }
     }

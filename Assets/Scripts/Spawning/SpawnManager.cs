@@ -3,21 +3,44 @@ using Unity.Netcode;
 using System.Collections.Generic;
 using System.Linq;
 using TidesEnd.UI;
+using TidesEnd.Abilities;
 
-// Just MonoBehaviour - NOT NetworkBehaviour
-public class SpawnManager : MonoBehaviour
+namespace TidesEnd
 {
-    [Header("Enemy Spawning")]
-    [SerializeField] private List<GameObject> enemyPrefabs = new List<GameObject>();
-    [SerializeField] private int initialEnemyCount = 5;
-    
-    private List<SpawnPoint> playerSpawnPoints = new List<SpawnPoint>();
-    private List<SpawnPoint> enemySpawnPoints = new List<SpawnPoint>();
-    
-    private int nextPlayerSpawnIndex = 0;
-    
-    private static SpawnManager instance;
-    public static SpawnManager Instance => instance;
+    /// <summary>
+    /// Unified spawn manager for players and enemies.
+    /// CONSOLIDATES: PlayerSpawnManager (class selection + player spawning) + SpawnManager (enemy spawning)
+    ///
+    /// Responsibilities:
+    /// 1. Player spawning with class selection from lobby
+    /// 2. Enemy spawning (waves, individual spawns)
+    /// 3. Spawn point management using SpawnPoint components
+    /// </summary>
+    public class SpawnManager : MonoBehaviour
+    {
+        public static SpawnManager Instance { get; private set; }
+
+        [Header("Player Spawning")]
+        [SerializeField] private GameObject playerPrefab;
+
+        [Tooltip("Available classes (must match SteamLobbySystem)")]
+        public List<ClassData> availableClasses = new List<ClassData>();
+
+        [Tooltip("Default class if none selected or invalid")]
+        public ClassData defaultClass;
+
+        [Header("Enemy Spawning")]
+        [SerializeField] private List<GameObject> enemyPrefabs = new List<GameObject>();
+        [SerializeField] private int initialEnemyCount = 5;
+
+        // Spawn points
+        private List<SpawnPoint> playerSpawnPoints = new List<SpawnPoint>();
+        private List<SpawnPoint> enemySpawnPoints = new List<SpawnPoint>();
+
+        // Player spawn tracking
+        private int nextPlayerSpawnIndex = 0;
+        private Dictionary<ulong, ClassData> playerClassSelections = new Dictionary<ulong, ClassData>();
+        private Dictionary<ulong, GameObject> spawnedPlayers = new Dictionary<ulong, GameObject>();
 
     private bool IsServer => NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
 
@@ -33,81 +56,146 @@ public class SpawnManager : MonoBehaviour
 
     private void Awake()
     {
-        if (instance != null && instance != this)
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        
-        instance = this;
-        
+
+        Instance = this;
+
         FindSpawnPoints();
     }
     
-    private void Start()
+    #region Player Spawning (Class Selection System)
+
+    /// <summary>
+    /// Store class selection for a client (called during connection approval by GameBootstrap).
+    /// </summary>
+    public void RegisterClassSelection(ulong clientId, string className)
     {
-        // Subscribe to connection events only if we have NetworkManager
-        if (NetworkManager.Singleton != null)
+        if (!IsServer)
         {
-            if (IsServer)
-            {
-                NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-            }
+            Debug.LogError("[SpawnManager] RegisterClassSelection can only be called on server!");
+            return;
+        }
+
+        ClassData selectedClass = availableClasses.Find(c => c.className == className);
+
+        if (selectedClass == null)
+        {
+            Debug.LogWarning($"[SpawnManager] Invalid class '{className}' for client {clientId}, using default");
+            selectedClass = defaultClass;
+        }
+
+        playerClassSelections[clientId] = selectedClass;
+        Debug.Log($"[SpawnManager] Registered class '{selectedClass.className}' for client {clientId}");
+    }
+
+    /// <summary>
+    /// Spawn a player for the given client ID with their selected class.
+    /// Called by GameBootstrap after connection approval.
+    /// </summary>
+    public void SpawnPlayer(ulong clientId)
+    {
+        if (!IsServer)
+        {
+            Debug.LogError("[SpawnManager] SpawnPlayer can only be called on server!");
+            return;
+        }
+
+        // Check if player already spawned
+        if (spawnedPlayers.ContainsKey(clientId))
+        {
+            Debug.LogWarning($"[SpawnManager] Player {clientId} already spawned!");
+            return;
+        }
+
+        // Get class selection
+        if (!playerClassSelections.TryGetValue(clientId, out ClassData selectedClass))
+        {
+            Debug.LogWarning($"[SpawnManager] No class selection for client {clientId}, using default");
+            selectedClass = defaultClass;
+        }
+
+        // Get spawn position/rotation
+        Vector3 spawnPos = GetPlayerSpawnPosition(nextPlayerSpawnIndex);
+        Quaternion spawnRot = GetPlayerSpawnRotation(nextPlayerSpawnIndex);
+
+        // Instantiate player prefab
+        GameObject playerObject = Instantiate(playerPrefab, spawnPos, spawnRot);
+        NetworkObject networkObject = playerObject.GetComponent<NetworkObject>();
+
+        if (networkObject == null)
+        {
+            Debug.LogError("[SpawnManager] Player prefab missing NetworkObject component!");
+            Destroy(playerObject);
+            return;
+        }
+
+        // Spawn as player object (assigns ownership to client)
+        networkObject.SpawnAsPlayerObject(clientId);
+
+        // Initialize EntityStats with selected class
+        if (playerObject.TryGetComponent<EntityStats>(out var entityStats))
+        {
+            entityStats.InitializeFromClass(selectedClass);
+            Debug.Log($"[SpawnManager] Initialized player {clientId} with class '{selectedClass.className}'");
         }
         else
         {
-            Debug.LogWarning("NetworkManager not found - SpawnManager won't function");
+            Debug.LogError("[SpawnManager] Player prefab missing EntityStats component!");
         }
-    }
-    
-    private void OnDestroy()
-    {
-        // Unsubscribe
-        if (NetworkManager.Singleton != null && IsServer)
-        {
-            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
-        }
-    }
-    
-    private void OnClientConnected(ulong clientId)
-    {
-        if (!IsServer) return;
-        
-        Debug.Log($"Client {clientId} connected, will position player at spawn point");
 
-        StartCoroutine(PositionPlayerAfterSpawn(clientId));
-        Invoke(nameof(SpawnInitialEnemies), 2f);
+        // Initialize AbilityUser with abilities from class
+        if (playerObject.TryGetComponent<AbilityUser>(out var abilityUser))
+        {
+            abilityUser.LoadAbilities(selectedClass.abilities);
+            Debug.Log($"[SpawnManager] Loaded {selectedClass.abilities.Count} abilities for player {clientId}");
+        }
+
+        // Track spawned player
+        spawnedPlayers[clientId] = playerObject;
+        nextPlayerSpawnIndex++;
+
+        Debug.Log($"[SpawnManager] Spawned player {clientId} at {spawnPos} with class '{selectedClass.className}'");
     }
-    
-    private System.Collections.IEnumerator PositionPlayerAfterSpawn(ulong clientId)
+
+    /// <summary>
+    /// Handle player disconnection (cleanup).
+    /// </summary>
+    public void OnPlayerDisconnected(ulong clientId)
     {
-        yield return new WaitForSeconds(0.1f);
-        
-        NetworkObject playerObject = null;
-        
-        foreach (var client in NetworkManager.Singleton.ConnectedClients)
+        if (!IsServer)
+            return;
+
+        playerClassSelections.Remove(clientId);
+
+        if (spawnedPlayers.TryGetValue(clientId, out GameObject playerObject))
         {
-            if (client.Key == clientId && client.Value.PlayerObject != null)
+            if (playerObject != null)
             {
-                playerObject = client.Value.PlayerObject;
-                break;
+                // NetworkObject despawn is handled automatically by Netcode
+                // Just clean up our tracking
             }
+            spawnedPlayers.Remove(clientId);
         }
-        
-        if (playerObject != null)
-        {
-            Vector3 spawnPos = GetPlayerSpawnPosition(nextPlayerSpawnIndex);
-            Quaternion spawnRot = GetPlayerSpawnRotation(nextPlayerSpawnIndex);
-            
-            playerObject.transform.position = spawnPos;
-            playerObject.transform.rotation = spawnRot;
-            
-            Debug.Log($"Positioned player {clientId} at spawn point {nextPlayerSpawnIndex}: {spawnPos}");
-            
-            nextPlayerSpawnIndex++;
-        }
+
+        Debug.Log($"[SpawnManager] Cleaned up player {clientId}");
     }
-    
+
+    /// <summary>
+    /// Get the class selection for a client.
+    /// </summary>
+    public ClassData GetPlayerClass(ulong clientId)
+    {
+        return playerClassSelections.TryGetValue(clientId, out ClassData classData) ? classData : defaultClass;
+    }
+
+    #endregion
+
+    #region Spawn Point Management
+
     private void FindSpawnPoints()
     {
         SpawnPoint[] allSpawnPoints = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
@@ -151,7 +239,11 @@ public class SpawnManager : MonoBehaviour
         int spawnIndex = playerIndex % playerSpawnPoints.Count;
         return playerSpawnPoints[spawnIndex].GetSpawnRotation();
     }
-    
+
+    #endregion
+
+    #region Enemy Spawning
+
     public void SpawnInitialEnemies()
     {
         if (!IsServer)
@@ -237,5 +329,8 @@ public class SpawnManager : MonoBehaviour
         }
         
         return availablePoints[Random.Range(0, availablePoints.Count)];
+    }
+
+    #endregion
     }
 }

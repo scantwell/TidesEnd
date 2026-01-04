@@ -2,6 +2,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
 using TidesEnd.Combat;
+using TidesEnd.Abilities;
 
 namespace TidesEnd.Enemy
 {
@@ -18,10 +19,6 @@ namespace TidesEnd.Enemy
         [SerializeField] private float attackCooldown = 1.5f; // Time between attacks
         [SerializeField] private float attackDamage = 10f;
 
-        [Header("Movement")]
-        [SerializeField] private float chaseSpeed = 3.5f;
-        [SerializeField] private float patrolSpeed = 2f;
-
         [Header("References")]
         [SerializeField] private Transform attackPoint; // Where attack originates
 
@@ -32,6 +29,7 @@ namespace TidesEnd.Enemy
         private Health Health;
         [SerializeField]
         private Animator Animator; // Optional
+        private EntityStats entityStats;
 
         // State
         private AIState currentState = AIState.Idle;
@@ -49,6 +47,8 @@ namespace TidesEnd.Enemy
         {
             if (attackPoint == null)
                 attackPoint = transform;
+
+            entityStats = GetComponent<EntityStats>();
         }
 
         public override void OnNetworkSpawn()
@@ -152,10 +152,10 @@ namespace TidesEnd.Enemy
                 return;
             }
 
-            // Move toward player
-            if (Agent != null && Agent.enabled)
+            // Move toward player - use SprintSpeed from EntityStats (includes all modifiers)
+            if (Agent != null && Agent.enabled && entityStats != null)
             {
-                Agent.speed = chaseSpeed;
+                Agent.speed = entityStats.SprintSpeed.Value;
                 Agent.SetDestination(targetPlayer.position);
             }
         }
@@ -301,14 +301,16 @@ namespace TidesEnd.Enemy
 
         private void OnStateEnter(AIState state)
         {
+            if (entityStats == null) return;
+
             switch (state)
             {
                 case AIState.Idle:
-                    if (Animator != null) Animator.speed = patrolSpeed;
+                    if (Animator != null) Animator.speed = entityStats.WalkSpeed.Value;
                     break;
 
                 case AIState.Chase:
-                    if (Animator != null) Animator.speed = chaseSpeed;
+                    if (Animator != null) Animator.speed = entityStats.SprintSpeed.Value;
                     break;
 
                 case AIState.Attack:

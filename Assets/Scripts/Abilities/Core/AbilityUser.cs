@@ -1,20 +1,23 @@
 using Unity.Netcode;
 using UnityEngine;
 using System.Collections.Generic;
+using System;
 
 namespace TidesEnd.Abilities
 {
     /// <summary>
-    /// Universal ability component attached to ALL entities that can use abilities.
-    /// Works for players, enemies, and bosses through a unified interface.
+    /// Component for entities that can CAST abilities (players, ability-using enemies, bosses).
+    /// If an entity only needs to be AFFECTED BY abilities (basic enemies, props), use EntityStats instead.
+    ///
+    /// Responsibility:
+    /// - Ability casting: cooldowns, casting, passive abilities
+    /// - NOT required for targeting: EntityStats component is used for ability targeting
+    ///
     /// Server-authoritative: all ability activations are validated and executed on server.
     /// </summary>
     public class AbilityUser : NetworkBehaviour
     {
         [Header("Entity Configuration")]
-        [Tooltip("Type of entity (Player, Enemy, or Boss)")]
-        public EntityType entityType = EntityType.Player;
-
         [Tooltip("Unique identifier for this entity (e.g., 'Bulwark', 'DrownedPriest', 'TideTouched')")]
         public string entityID = "";
 
@@ -29,8 +32,8 @@ namespace TidesEnd.Abilities
         [Tooltip("Show debug logs for ability activation?")]
         public bool debugMode = false;
 
-        // Internal state
-        private Dictionary<string, float> cooldowns = new Dictionary<string, float>();
+        // Internal state - Array-based cooldowns (thread-safe, network-ready)
+        private float[] cooldownTimers; // Index matches activeAbilities[] array
         private Dictionary<string, AbilityInstance> activeAbilityInstances = new Dictionary<string, AbilityInstance>();
         private bool isCasting = false;
         private bool isInterruptible = true;
@@ -47,8 +50,15 @@ namespace TidesEnd.Abilities
         {
             base.OnNetworkSpawn();
 
+            // Initialize cooldown timers array
+            cooldownTimers = new float[activeAbilities.Length];
+            for (int i = 0; i < cooldownTimers.Length; i++)
+            {
+                cooldownTimers[i] = 0f;
+            }
+
             if (debugMode)
-                Debug.Log($"[AbilityUser] {entityID} spawned. Entity type: {entityType}");
+                Debug.Log($"[AbilityUser] {entityID} spawned");
 
             // Apply passive ability on spawn
             if (passiveAbility != null && IsServer)
@@ -64,6 +74,16 @@ namespace TidesEnd.Abilities
 
             UpdateCooldowns();
             UpdateActiveAbilities();
+        }
+
+        /// <summary>
+        /// ServerRpc for clients to request ability activation.
+        /// RequireOwnership = false allows AI entities to call this locally on server.
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        public void ActivateAbilityServerRpc(int abilityIndex, AbilityContext context)
+        {
+            TryActivateAbility(abilityIndex, context);
         }
 
         /// <summary>
@@ -92,7 +112,7 @@ namespace TidesEnd.Abilities
             AbilityData ability = activeAbilities[abilityIndex];
 
             // Validate ability can be used
-            if (!CanUseAbility(ability))
+            if (!CanUseAbility(abilityIndex, ability))
             {
                 if (debugMode)
                     Debug.Log($"[AbilityUser] Cannot use ability '{ability.abilityName}' (on cooldown or casting)");
@@ -100,14 +120,14 @@ namespace TidesEnd.Abilities
             }
 
             // Start cast
-            StartAbilityCast(ability, context);
+            StartAbilityCast(abilityIndex, ability, context);
             return true;
         }
 
-        private bool CanUseAbility(AbilityData ability)
+        private bool CanUseAbility(int abilityIndex, AbilityData ability)
         {
             // Check cooldown
-            if (IsOnCooldown(ability))
+            if (IsOnCooldown(abilityIndex))
                 return false;
 
             // Check if already casting another ability
@@ -122,7 +142,7 @@ namespace TidesEnd.Abilities
             return true;
         }
 
-        private void StartAbilityCast(AbilityData ability, AbilityContext context)
+        private void StartAbilityCast(int abilityIndex, AbilityData ability, AbilityContext context)
         {
             if (ability.castTime > 0)
             {
@@ -131,7 +151,7 @@ namespace TidesEnd.Abilities
                 OnAbilityCastStarted?.Invoke(ability);
 
                 // Start cast coroutine
-                currentCastCoroutine = StartCoroutine(CastAbilityCoroutine(ability, context));
+                currentCastCoroutine = StartCoroutine(CastAbilityCoroutine(abilityIndex, ability, context));
 
                 // Notify clients
                 NotifyAbilityCastStartedClientRpc(ability.abilityName);
@@ -139,11 +159,11 @@ namespace TidesEnd.Abilities
             else
             {
                 // Instant cast
-                ExecuteAbility(ability, context);
+                ExecuteAbility(abilityIndex, ability, context);
             }
         }
 
-        private System.Collections.IEnumerator CastAbilityCoroutine(AbilityData ability, AbilityContext context)
+        private System.Collections.IEnumerator CastAbilityCoroutine(int abilityIndex, AbilityData ability, AbilityContext context)
         {
             float castTimer = 0f;
 
@@ -154,7 +174,7 @@ namespace TidesEnd.Abilities
                 // Check for interruption
                 if (isInterruptible && ShouldInterruptCast())
                 {
-                    InterruptCast(ability);
+                    InterruptCast(abilityIndex, ability);
                     yield break;
                 }
 
@@ -163,10 +183,10 @@ namespace TidesEnd.Abilities
 
             // Cast complete
             isCasting = false;
-            ExecuteAbility(ability, context);
+            ExecuteAbility(abilityIndex, ability, context);
         }
 
-        private void ExecuteAbility(AbilityData ability, AbilityContext context)
+        private void ExecuteAbility(int abilityIndex, AbilityData ability, AbilityContext context)
         {
             if (debugMode)
                 Debug.Log($"[AbilityUser] {entityID} executing ability: {ability.abilityName}");
@@ -190,7 +210,7 @@ namespace TidesEnd.Abilities
             }
 
             // Start cooldown
-            StartCooldown(ability);
+            StartCooldown(abilityIndex, ability);
 
             // Trigger events
             OnAbilityActivated?.Invoke(ability);
@@ -219,41 +239,39 @@ namespace TidesEnd.Abilities
             // TODO: Spawn VFX, play audio, update UI
         }
 
-        private void StartCooldown(AbilityData ability)
+        private void StartCooldown(int abilityIndex, AbilityData ability)
         {
-            cooldowns[ability.abilityName] = ability.cooldown;
-            OnAbilityCooldownStarted?.Invoke(ability);
+            if (abilityIndex >= 0 && abilityIndex < cooldownTimers.Length)
+            {
+                cooldownTimers[abilityIndex] = ability.cooldown;
+                OnAbilityCooldownStarted?.Invoke(ability);
 
-            if (debugMode)
-                Debug.Log($"[AbilityUser] Started cooldown for {ability.abilityName}: {ability.cooldown}s");
+                if (debugMode)
+                    Debug.Log($"[AbilityUser] Started cooldown for {ability.abilityName}: {ability.cooldown}s");
+            }
         }
 
         private void UpdateCooldowns()
         {
-            List<string> completedCooldowns = new List<string>();
-
-            foreach (var key in cooldowns.Keys)
+            // Thread-safe: Simple array iteration, no collection modification during iteration
+            for (int i = 0; i < cooldownTimers.Length; i++)
             {
-                cooldowns[key] -= Time.deltaTime;
-
-                if (cooldowns[key] <= 0)
+                if (cooldownTimers[i] > 0)
                 {
-                    completedCooldowns.Add(key);
-                }
-            }
+                    cooldownTimers[i] -= Time.deltaTime;
 
-            foreach (string abilityName in completedCooldowns)
-            {
-                cooldowns.Remove(abilityName);
+                    // Check if cooldown just completed
+                    if (cooldownTimers[i] <= 0)
+                    {
+                        cooldownTimers[i] = 0; // Clamp to zero
 
-                // Find ability data and trigger event
-                AbilityData ability = System.Array.Find(activeAbilities, a => a.abilityName == abilityName);
-                if (ability != null)
-                {
-                    OnAbilityCooldownComplete?.Invoke(ability);
+                        // Trigger event for UI/AI
+                        AbilityData ability = activeAbilities[i];
+                        OnAbilityCooldownComplete?.Invoke(ability);
 
-                    if (debugMode)
-                        Debug.Log($"[AbilityUser] Cooldown complete: {abilityName}");
+                        if (debugMode)
+                            Debug.Log($"[AbilityUser] Cooldown complete: {ability.abilityName}");
+                    }
                 }
             }
         }
@@ -282,16 +300,33 @@ namespace TidesEnd.Abilities
             }
         }
 
+        public bool IsOnCooldown(int abilityIndex)
+        {
+            if (abilityIndex < 0 || abilityIndex >= cooldownTimers.Length)
+                return false;
+
+            return cooldownTimers[abilityIndex] > 0;
+        }
+
+        public float GetCooldownRemaining(int abilityIndex)
+        {
+            if (abilityIndex < 0 || abilityIndex >= cooldownTimers.Length)
+                return 0f;
+
+            return Mathf.Max(0f, cooldownTimers[abilityIndex]);
+        }
+
+        // Overload for backward compatibility with AbilityData parameter
         public bool IsOnCooldown(AbilityData ability)
         {
-            return cooldowns.ContainsKey(ability.abilityName) && cooldowns[ability.abilityName] > 0;
+            int index = System.Array.IndexOf(activeAbilities, ability);
+            return IsOnCooldown(index);
         }
 
         public float GetCooldownRemaining(AbilityData ability)
         {
-            if (!cooldowns.ContainsKey(ability.abilityName))
-                return 0f;
-            return Mathf.Max(0f, cooldowns[ability.abilityName]);
+            int index = System.Array.IndexOf(activeAbilities, ability);
+            return GetCooldownRemaining(index);
         }
 
         private void ApplyPassiveAbility()
@@ -321,7 +356,7 @@ namespace TidesEnd.Abilities
             return false;
         }
 
-        private void InterruptCast(AbilityData ability)
+        private void InterruptCast(int abilityIndex, AbilityData ability)
         {
             isCasting = false;
 
@@ -332,7 +367,7 @@ namespace TidesEnd.Abilities
             }
 
             // Trigger cooldown on interruption
-            StartCooldown(ability);
+            StartCooldown(abilityIndex, ability);
 
             OnAbilityCastInterrupted?.Invoke(ability);
 
@@ -360,6 +395,102 @@ namespace TidesEnd.Abilities
 
             if (debugMode)
                 Debug.Log($"[AbilityUser] Cast force interrupted");
+        }
+
+        internal AbilityData GetAbilityData(int abilityIndex)
+        {
+            return (abilityIndex >= 0 && abilityIndex < activeAbilities.Length) ? activeAbilities[abilityIndex] : null;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Draw gizmos when this entity is selected in the editor.
+        /// Shows ability ranges, radii, and targeting modes.
+        /// </summary>
+        private void OnDrawGizmosSelected()
+        {
+            // Draw passive ability visualization
+            if (passiveAbility != null && passiveAbility.range > 0)
+            {
+                GizmoHelpers.DrawWireCircle(transform.position, passiveAbility.range, new Color(0f, 1f, 1f, 0.5f), 32);
+            }
+
+            // Draw active abilities
+            for (int i = 0; i < activeAbilities.Length; i++)
+            {
+                AbilityData ability = activeAbilities[i];
+                if (ability == null) continue;
+
+                // Choose color based on ability index
+                Color abilityColor = i == 0 ? new Color(1f, 0.5f, 0f, 0.6f) : new Color(0.5f, 0f, 1f, 0.6f);
+
+                // Draw range circle
+                if (ability.range > 0)
+                {
+                    GizmoHelpers.DrawWireCircle(transform.position, ability.range, abilityColor, 48);
+                }
+
+                // Draw radius/AOE circle
+                if (ability.radius > 0)
+                {
+                    // Draw a sphere to show AOE size
+                    Vector3 previewPosition = transform.position + transform.forward * Mathf.Min(ability.range, 5f);
+                    GizmoHelpers.DrawWireSphere(previewPosition, ability.radius, abilityColor);
+                }
+
+                // Draw targeting mode visualization
+                switch (ability.targetingMode)
+                {
+                    case TargetingMode.Direction:
+                        // Draw forward arrow
+                        GizmoHelpers.DrawArrow(transform.position, transform.forward,
+                            Mathf.Min(ability.range, 10f), abilityColor, 0.2f);
+                        break;
+
+                    case TargetingMode.Self:
+                        // Draw sphere around self
+                        if (ability.radius > 0)
+                        {
+                            GizmoHelpers.DrawWireSphere(transform.position, ability.radius, abilityColor);
+                        }
+                        break;
+
+                    case TargetingMode.Ground:
+                        // Draw circle on ground at preview position
+                        Vector3 groundPreview = transform.position + transform.forward * Mathf.Min(ability.range * 0.5f, 5f);
+                        if (ability.radius > 0)
+                        {
+                            GizmoHelpers.DrawWireCircle(groundPreview, ability.radius, abilityColor, 32);
+                        }
+                        break;
+                }
+            }
+
+            // Draw cooldown indicators (only in Play mode)
+            if (Application.isPlaying && cooldownTimers != null)
+            {
+                for (int i = 0; i < Mathf.Min(cooldownTimers.Length, activeAbilities.Length); i++)
+                {
+                    if (cooldownTimers[i] > 0 && activeAbilities[i] != null)
+                    {
+                        // Draw a small indicator above the entity
+                        Vector3 labelPos = transform.position + Vector3.up * 2.5f + Vector3.right * (i * 0.5f - 0.25f);
+
+                        // Draw cooldown as a colored sphere (red = on cooldown)
+                        float cooldownPercent = cooldownTimers[i] / activeAbilities[i].cooldown;
+                        Color cooldownColor = Color.Lerp(Color.green, Color.red, cooldownPercent);
+                        GizmoHelpers.DrawWireSphere(labelPos, 0.1f, cooldownColor);
+                    }
+                }
+            }
+        }
+#endif
+        internal void LoadAbilities(List<AbilityData> abilities)
+        {
+            for (int i = 0; i < Mathf.Min(abilities.Count, activeAbilities.Length); i++)
+            {
+                activeAbilities[i] = abilities[i];
+            }
         }
     }
 

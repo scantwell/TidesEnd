@@ -134,6 +134,7 @@ public class BuildScript : MonoBehaviour
             if (target == BuildTarget.StandaloneLinux64)
             {
                 SetLinuxExecutablePermissions(buildPath);
+                CopySteamLibraryForLinux(directoryPath);
                 CreateLinuxReadme(directoryPath);
             }
 
@@ -200,6 +201,34 @@ public class BuildScript : MonoBehaviour
         {
             Debug.LogWarning($"  ⚠ steam_appid.txt not found at: {sourceFile}");
             Debug.LogWarning($"  Steam integration may not work without this file!");
+        }
+    }
+
+    private static void CopySteamLibraryForLinux(string buildDirectory)
+    {
+        // Find libsteam_api.so in the Plugins folder
+        string pluginsDir = Path.Combine(buildDirectory, $"{GameName}_Data", "Plugins");
+        string sourceLib = Path.Combine(pluginsDir, "libsteam_api.so");
+        string destLib = Path.Combine(buildDirectory, "libsteam_api.so");
+
+        if (File.Exists(sourceLib))
+        {
+            try
+            {
+                File.Copy(sourceLib, destLib, overwrite: true);
+                Debug.Log($"  ✓ Copied libsteam_api.so to executable directory");
+                Debug.Log($"    From: {pluginsDir}");
+                Debug.Log($"    To: {buildDirectory}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"  ⚠ Failed to copy libsteam_api.so: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"  ⚠ libsteam_api.so not found at: {sourceLib}");
+            Debug.LogWarning($"  Steam integration may not work on Linux!");
         }
     }
 
@@ -286,7 +315,16 @@ if [ ! -x ""{executableName}"" ]; then
     chmod +x ""{executableName}""
 fi
 
-# Set library path to find Steam libraries
+# Set library path to find Steam libraries and game libraries
+# Add current directory first (where we copied libsteam_api.so)
+export LD_LIBRARY_PATH=""$(pwd):$LD_LIBRARY_PATH""
+
+# Also add the Plugins directory as fallback
+if [ -d ""{GameName}_Data/Plugins"" ]; then
+    export LD_LIBRARY_PATH=""$(pwd)/{GameName}_Data/Plugins:$LD_LIBRARY_PATH""
+fi
+
+# Add Steam runtime paths
 if [ -d ""$HOME/.steam/steam/ubuntu12_32/steam-runtime/lib/x86_64-linux-gnu"" ]; then
     export LD_LIBRARY_PATH=""$HOME/.steam/steam/ubuntu12_32/steam-runtime/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH""
 fi
@@ -294,6 +332,9 @@ fi
 if [ -d ""$HOME/.local/share/Steam/ubuntu12_32/steam-runtime/lib/x86_64-linux-gnu"" ]; then
     export LD_LIBRARY_PATH=""$HOME/.local/share/Steam/ubuntu12_32/steam-runtime/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH""
 fi
+
+echo ""Library search path configured""
+echo ""LD_LIBRARY_PATH: $LD_LIBRARY_PATH""
 
 # Check for steam_appid.txt
 if [ ! -f ""steam_appid.txt"" ]; then

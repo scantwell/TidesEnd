@@ -21,7 +21,7 @@ namespace TidesEnd.Combat {
         [SerializeField] private float respawnHealth = 100f;
         
         // Network synchronized health
-        private NetworkVariable<float> currentHealth = new NetworkVariable<float>(
+        [SerializeField] private NetworkVariable<float> currentHealth = new NetworkVariable<float>(
             100f,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server

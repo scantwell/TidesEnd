@@ -58,6 +58,9 @@ namespace TidesEnd.UI
             var wd = weaponController.GetCurrentWeaponData();
             if (wd != null)
                 HandleWeaponChanged(wd);
+
+            // Show the HUD when the local player spawns
+            Show();
         }
 
         private void OnDestroy()
@@ -108,11 +111,11 @@ namespace TidesEnd.UI
         private void UpdateMultiplayerUI()
         {
             // Update lobby info text
-            if (lobbyInfoText != null && SteamLobbyManager.Instance != null)
+            if (lobbyInfoText != null && SteamLobbySystem.Instance != null)
             {
-                if (SteamLobbyManager.Instance.IsInLobby)
+                if (SteamLobbySystem.Instance.IsInLobby)
                 {
-                    lobbyInfoText.text = SteamLobbyManager.Instance.GetLobbyInfo();
+                    lobbyInfoText.text = SteamLobbySystem.Instance.GetLobbyInfo();
                     lobbyInfoText.gameObject.SetActive(true);
                 }
                 else
@@ -196,6 +199,16 @@ namespace TidesEnd.UI
                 canvasGroup.alpha = 1f;
                 canvasGroup.interactable = true;
                 canvasGroup.blocksRaycasts = true;
+
+                // Debug crosshair visibility
+                if (crosshair != null)
+                {
+                    Debug.Log($"[HUDManager] Show() called - Crosshair assigned, Sprite: {(crosshair.sprite != null ? crosshair.sprite.name : "NULL")}, Active: {crosshair.gameObject.activeSelf}, Color: {crosshair.color}");
+                }
+                else
+                {
+                    Debug.LogWarning("[HUDManager] Show() called but Crosshair is NULL! Please assign it in the Inspector.");
+                }
             }
         }
 

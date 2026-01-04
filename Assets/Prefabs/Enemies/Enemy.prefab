@@ -144,6 +144,7 @@ GameObject:
   - component: {fileID: 5188790216881890461}
   - component: {fileID: 9180864749760152939}
   - component: {fileID: 4006458280138166500}
+  - component: {fileID: 9077419319807405224}
   m_Layer: 10
   m_Name: Enemy
   m_TagString: Enemy
@@ -310,6 +311,8 @@ MonoBehaviour:
   autoRespawn: 1
   respawnDelay: 5
   respawnHealth: 100
+  currentHealth:
+    m_InternalValue: 100
 --- !u!114 &4006458280138166500
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -327,9 +330,53 @@ MonoBehaviour:
   attackRange: 2
   attackCooldown: 1.5
   attackDamage: 10
-  chaseSpeed: 3.5
-  patrolSpeed: 2
   attackPoint: {fileID: 0}
   Agent: {fileID: 5188790216881890461}
   Health: {fileID: 9180864749760152939}
   Animator: {fileID: 0}
+--- !u!114 &9077419319807405224
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4871277079758495943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9daa73f31634434f877ef9cca05abd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TidesEnd.Abilities.EntityStats
+  ShowTopMostFoldoutHeaderGroup: 1
+  characterStats: {fileID: 0}
+  entityType: 1
+  debugMode: 0
+  WalkSpeed:
+    m_InternalValue: 2
+  SprintSpeed:
+    m_InternalValue: 3.5
+  JumpHeight:
+    m_InternalValue: 0
+  MaxHealth:
+    m_InternalValue: 0
+  RegenRate:
+    m_InternalValue: 0
+  RegenDelay:
+    m_InternalValue: 0
+  FireRate:
+    m_InternalValue: 0
+  ReloadSpeed:
+    m_InternalValue: 0
+  MagazineSize:
+    m_InternalValue: 0
+  Spread:
+    m_InternalValue: 0
+  Recoil:
+    m_InternalValue: 0
+  DamageOutput:
+    m_InternalValue: 0
+  CriticalChance:
+    m_InternalValue: 0
+  Armor:
+    m_InternalValue: 0
+  ActiveStatuses:
+    m_InternalValue: 0

@@ -24,10 +24,10 @@ namespace TidesEnd.Abilities
                 ? context.targetDirection
                 : caster.transform.forward;
 
-            // Spawn projectile
+            // Spawn projectile (networked)
             if (abilityData.activeVFXPrefab != null)
             {
-                projectile = SpawnVFX(
+                projectile = SpawnNetworkedObject(
                     abilityData.activeVFXPrefab,
                     spawnPosition,
                     Quaternion.LookRotation(direction)
