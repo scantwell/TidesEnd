@@ -102,3 +102,6 @@ InitTestScene*.unity*
 .agent/
 /[Aa]ssets/_[Tt]hirdParty/
 .vscode/
+.vsconfig
+.claude/
+CLAUDE.md
