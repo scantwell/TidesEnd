@@ -99,5 +99,5 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
 /nul
-.agent
-/[Aa]ssets/_[Tt]hirdParty
+.agent/
+/[Aa]ssets/_[Tt]hirdParty/
